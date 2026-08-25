@@ -2,22 +2,57 @@ const input = document.getElementById("message-input");
 const button = document.getElementById("send-button");
 const chatBox = document.getElementById("chat-box");
 const clearButton = document.getElementById("clear-chat");
+const newChatButton = document.getElementById("new-chat");
 const darkModeButton = document.getElementById("dark-mode");
+
 // Store conversation history
 let conversation = [];
 
+// Load saved conversation memory
+const savedConversation = localStorage.getItem("conversation");
+
+if (savedConversation) {
+    conversation = JSON.parse(savedConversation);
+}
+
+// Send button
 button.addEventListener("click", sendMessage);
 
+// Clear Chat
 clearButton.addEventListener("click", function() {
     conversation = [];
+
+    localStorage.removeItem("conversation");
+    localStorage.removeItem("chatHistory");
 
     chatBox.innerHTML = `
         <div class="message bot">
             <strong>AI:</strong> Hello! How can I help you?
         </div>
     `;
-    localStorage.removeItem("chatHistory");
+
+    input.value = "";
+    input.focus();
 });
+
+// New Chat
+newChatButton.addEventListener("click", function() {
+    conversation = [];
+
+    localStorage.removeItem("conversation");
+    localStorage.removeItem("chatHistory");
+
+    chatBox.innerHTML = `
+        <div class="message bot">
+            <strong>AI:</strong> Hello! How can I help you?
+        </div>
+    `;
+
+    input.value = "";
+    input.focus();
+});
+
+// Dark Mode
 darkModeButton.addEventListener("click", function() {
     document.body.classList.toggle("dark");
 
@@ -28,12 +63,14 @@ darkModeButton.addEventListener("click", function() {
     }
 });
 
+// Enter key → Send
 input.addEventListener("keydown", function(event) {
     if (event.key === "Enter") {
         sendMessage();
     }
 });
 
+// Send message
 async function sendMessage() {
 
     const message = input.value.trim();
@@ -52,6 +89,11 @@ async function sendMessage() {
         content: message
     });
 
+    localStorage.setItem(
+        "conversation",
+        JSON.stringify(conversation)
+    );
+
     // Show user's message
     const userMessage = document.createElement("div");
 
@@ -61,8 +103,11 @@ async function sendMessage() {
         `<strong>You:</strong> ${message}`;
 
     chatBox.appendChild(userMessage);
+
+    // Save visible chat
     saveChat();
 
+    // Clear input
     input.value = "";
 
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -95,7 +140,16 @@ async function sendMessage() {
 
         const data = await response.json();
 
-        if (data.reply) {
+        // Handle server errors
+        if (!response.ok) {
+
+            loadingMessage.innerHTML =
+                `<strong>AI:</strong> ${data.error || "Something went wrong."}`;
+
+        }
+
+        // Handle successful AI response
+        else if (data.reply) {
 
             // Add AI response to conversation history
             conversation.push({
@@ -103,11 +157,23 @@ async function sendMessage() {
                 content: data.reply
             });
 
+            // Save conversation memory
+            localStorage.setItem(
+                "conversation",
+                JSON.stringify(conversation)
+            );
+
+            // Display Markdown response
             loadingMessage.innerHTML =
-                `<strong>AI:</strong> ${data.reply}`;
+                `<strong>AI:</strong> ${marked.parse(data.reply)}`;
+
+            // Save visible chat
             saveChat();
 
-        } else {
+        }
+
+        // Handle empty response
+        else {
 
             loadingMessage.innerHTML =
                 "<strong>AI:</strong> Sorry, I couldn't generate a response.";
@@ -131,12 +197,22 @@ async function sendMessage() {
 
     chatBox.scrollTop = chatBox.scrollHeight;
 }
+
+// Save visible chat history
 function saveChat() {
-    localStorage.setItem("chatHistory", chatBox.innerHTML);
+    localStorage.setItem(
+        "chatHistory",
+        chatBox.innerHTML
+    );
 }
+
+// Load saved visible chat history
 const savedChat = localStorage.getItem("chatHistory");
 
 if (savedChat) {
+
     chatBox.innerHTML = savedChat;
+
     chatBox.scrollTop = chatBox.scrollHeight;
+
 }

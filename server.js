@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
 
 const app = express();
 
@@ -13,7 +14,8 @@ app.post("/api/chat", async (req, res) => {
     try {
         const conversation = req.body.conversation;
 
-        const response = await fetch("http://localhost:11434/api/chat", {
+        const response = await fetch(`${process.env.OLLAMA_URL}/api/chat`, {
+
             method: "POST",
 
             headers: {
@@ -21,8 +23,14 @@ app.post("/api/chat", async (req, res) => {
             },
 
             body: JSON.stringify({
-                model: "llama3.2:3b",
-                messages: conversation,
+                model: process.env.OLLAMA_MODEL,
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful, friendly AI assistant. Give clear and accurate answers. Keep responses easy to understand."
+                     },
+                    ...conversation
+                ],
                 stream: false
             })
         });
@@ -30,6 +38,13 @@ app.post("/api/chat", async (req, res) => {
         const data = await response.json();
 
         console.log("Ollama response:", data);
+        if (!response.ok) {
+             console.error("Ollama error:", data);
+
+            return res.status(response.status).json({
+                 error: data.error || "Ollama returned an error"
+            });
+        }
 
         if (!data.message || !data.message.content) {
             return res.status(500).json({
